@@ -36,7 +36,7 @@ class kucoin extends \ccxt\async\kucoin {
                     'delay' => 1000, // warmup delay in ms before synchronizing
                 ),
                 'watchTicker' => array(
-                    'topic' => 'market/snapshot', // market/ticker
+                    'name' => 'market/snapshot', // market/ticker
                 ),
             ),
             'streaming' => array(
@@ -147,7 +147,7 @@ class kucoin extends \ccxt\async\kucoin {
             $symbol = $market['symbol'];
             $negotiation = Async\await($this->negotiate());
             $options = $this->safe_value($this->options, 'watchTicker', array());
-            $channel = $this->safe_string($options, 'topic', 'market/snapshot');
+            $channel = $this->safe_string_2($options, 'name', 'topic', 'market/snapshot'); // $topic option is deprecated use name instead
             $topic = '/' . $channel . ':' . $market['id'];
             $messageHash = $topic;
             return Async\await($this->subscribe($negotiation, $topic, $messageHash, null, $symbol, $params));
@@ -230,6 +230,15 @@ class kucoin extends \ccxt\async\kucoin {
 
     public function watch_ohlcv($symbol, $timeframe = '1m', $since = null, $limit = null, $params = array ()) {
         return Async\async(function () use ($symbol, $timeframe, $since, $limit, $params) {
+            /**
+             * watches historical candlestick data containing the open, high, low, and close price, and the volume of a $market
+             * @param {string} $symbol unified $symbol of the $market to fetch OHLCV data for
+             * @param {string} $timeframe the length of time each candle represents
+             * @param {int|null} $since timestamp in ms of the earliest candle to fetch
+             * @param {int|null} $limit the maximum amount of candles to fetch
+             * @param {array} $params extra parameters specific to the kucoin api endpoint
+             * @return {[[int]]} A list of candles ordered as timestamp, open, high, low, close, volume
+             */
             Async\await($this->load_markets());
             $negotiation = Async\await($this->negotiate());
             $market = $this->market($symbol);
@@ -383,7 +392,7 @@ class kucoin extends \ccxt\async\kucoin {
             $topic = '/market/level2:' . $market['id'];
             $messageHash = $topic;
             $orderbook = Async\await($this->subscribe($negotiation, $topic, $messageHash, array($this, 'handle_order_book_subscription'), $symbol, $params));
-            return $orderbook->limit ($limit);
+            return $orderbook->limit ();
         }) ();
     }
 
@@ -698,6 +707,7 @@ class kucoin extends \ccxt\async\kucoin {
             'side' => $side,
             'price' => $price,
             'stopPrice' => null,
+            'triggerPrice' => null,
             'amount' => $amount,
             'cost' => null,
             'average' => null,

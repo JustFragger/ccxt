@@ -30,7 +30,7 @@ module.exports = class kucoin extends kucoinRest {
                     'delay': 1000, // warmup delay in ms before synchronizing
                 },
                 'watchTicker': {
-                    'topic': 'market/snapshot', // market/ticker
+                    'name': 'market/snapshot', // market/ticker
                 },
             },
             'streaming': {
@@ -138,7 +138,7 @@ module.exports = class kucoin extends kucoinRest {
         symbol = market['symbol'];
         const negotiation = await this.negotiate ();
         const options = this.safeValue (this.options, 'watchTicker', {});
-        const channel = this.safeString (options, 'topic', 'market/snapshot');
+        const channel = this.safeString2 (options, 'name', 'topic', 'market/snapshot'); // topic option is deprecated use name instead
         const topic = '/' + channel + ':' + market['id'];
         const messageHash = topic;
         return await this.subscribe (negotiation, topic, messageHash, undefined, symbol, params);
@@ -219,6 +219,17 @@ module.exports = class kucoin extends kucoinRest {
     }
 
     async watchOHLCV (symbol, timeframe = '1m', since = undefined, limit = undefined, params = {}) {
+        /**
+         * @method
+         * @name kucoin#watchOHLCV
+         * @description watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
+         * @param {string} symbol unified symbol of the market to fetch OHLCV data for
+         * @param {string} timeframe the length of time each candle represents
+         * @param {int|undefined} since timestamp in ms of the earliest candle to fetch
+         * @param {int|undefined} limit the maximum amount of candles to fetch
+         * @param {object} params extra parameters specific to the kucoin api endpoint
+         * @returns {[[int]]} A list of candles ordered as timestamp, open, high, low, close, volume
+         */
         await this.loadMarkets ();
         const negotiation = await this.negotiate ();
         const market = this.market (symbol);
@@ -372,7 +383,7 @@ module.exports = class kucoin extends kucoinRest {
         const topic = '/market/level2:' + market['id'];
         const messageHash = topic;
         const orderbook = await this.subscribe (negotiation, topic, messageHash, this.handleOrderBookSubscription, symbol, params);
-        return orderbook.limit (limit);
+        return orderbook.limit ();
     }
 
     retryFetchOrderBookSnapshot (client, message, subscription) {
@@ -684,6 +695,7 @@ module.exports = class kucoin extends kucoinRest {
             'side': side,
             'price': price,
             'stopPrice': undefined,
+            'triggerPrice': undefined,
             'amount': amount,
             'cost': undefined,
             'average': undefined,

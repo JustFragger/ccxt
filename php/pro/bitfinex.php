@@ -71,6 +71,8 @@ class bitfinex extends \ccxt\async\bitfinex {
              * @param {array} $params extra parameters specific to the bitfinex api endpoint
              * @return {[array]} a list of ~@link https://docs.ccxt.com/en/latest/manual.html?#public-$trades trade structures~
              */
+            Async\await($this->load_markets());
+            $symbol = $this->symbol($symbol);
             $trades = Async\await($this->subscribe('trades', $symbol, $params));
             if ($this->newUpdates) {
                 $limit = $trades->getLimit ($symbol, $limit);
@@ -118,30 +120,28 @@ class bitfinex extends \ccxt\async\bitfinex {
         $marketId = $this->safe_string($subscription, 'pair');
         $messageHash = $channel . ':' . $marketId;
         $tradesLimit = $this->safe_integer($this->options, 'tradesLimit', 1000);
-        if (is_array($this->markets_by_id) && array_key_exists($marketId, $this->markets_by_id)) {
-            $market = $this->markets_by_id[$marketId];
-            $symbol = $market['symbol'];
-            $data = $this->safe_value($message, 1);
-            $stored = $this->safe_value($this->trades, $symbol);
-            if ($stored === null) {
-                $stored = new ArrayCache ($tradesLimit);
-                $this->trades[$symbol] = $stored;
-            }
-            if (gettype($data) === 'array' && array_keys($data) === array_keys(array_keys($data))) {
-                $trades = $this->parse_trades($data, $market);
-                for ($i = 0; $i < count($trades); $i++) {
-                    $stored->append ($trades[$i]);
-                }
-            } else {
-                $second = $this->safe_string($message, 1);
-                if ($second !== 'tu') {
-                    return;
-                }
-                $trade = $this->parse_trade($message, $market);
-                $stored->append ($trade);
-            }
-            $client->resolve ($stored, $messageHash);
+        $market = $this->safe_market($marketId);
+        $symbol = $market['symbol'];
+        $data = $this->safe_value($message, 1);
+        $stored = $this->safe_value($this->trades, $symbol);
+        if ($stored === null) {
+            $stored = new ArrayCache ($tradesLimit);
+            $this->trades[$symbol] = $stored;
         }
+        if (gettype($data) === 'array' && array_keys($data) === array_keys(array_keys($data))) {
+            $trades = $this->parse_trades($data, $market);
+            for ($i = 0; $i < count($trades); $i++) {
+                $stored->append ($trades[$i]);
+            }
+        } else {
+            $second = $this->safe_string($message, 1);
+            if ($second !== 'tu') {
+                return;
+            }
+            $trade = $this->parse_trade($message, $market);
+            $stored->append ($trade);
+        }
+        $client->resolve ($stored, $messageHash);
         return $message;
     }
 
@@ -288,7 +288,7 @@ class bitfinex extends \ccxt\async\bitfinex {
                 'len' => $limit, // string, number of price points, '25', '100', default = '25'
             );
             $orderbook = Async\await($this->subscribe('book', $symbol, $this->deep_extend($request, $params)));
-            return $orderbook->limit ($limit);
+            return $orderbook->limit ();
         }) ();
     }
 
@@ -487,6 +487,9 @@ class bitfinex extends \ccxt\async\bitfinex {
              */
             Async\await($this->load_markets());
             Async\await($this->authenticate());
+            if ($symbol !== null) {
+                $symbol = $this->symbol($symbol);
+            }
             $url = $this->urls['api']['ws']['private'];
             $orders = Async\await($this->watch($url, 'os', null, 1));
             if ($this->newUpdates) {
@@ -611,6 +614,7 @@ class bitfinex extends \ccxt\async\bitfinex {
             'side' => $side,
             'price' => $price,
             'stopPrice' => null,
+            'triggerPrice' => null,
             'average' => null,
             'amount' => $amount,
             'remaining' => $remaining,

@@ -65,6 +65,8 @@ module.exports = class bitfinex extends bitfinexRest {
          * @param {object} params extra parameters specific to the bitfinex api endpoint
          * @returns {[object]} a list of [trade structures]{@link https://docs.ccxt.com/en/latest/manual.html?#public-trades}
          */
+        await this.loadMarkets ();
+        symbol = this.symbol (symbol);
         const trades = await this.subscribe ('trades', symbol, params);
         if (this.newUpdates) {
             limit = trades.getLimit (symbol, limit);
@@ -111,30 +113,28 @@ module.exports = class bitfinex extends bitfinexRest {
         const marketId = this.safeString (subscription, 'pair');
         const messageHash = channel + ':' + marketId;
         const tradesLimit = this.safeInteger (this.options, 'tradesLimit', 1000);
-        if (marketId in this.markets_by_id) {
-            const market = this.markets_by_id[marketId];
-            const symbol = market['symbol'];
-            const data = this.safeValue (message, 1);
-            let stored = this.safeValue (this.trades, symbol);
-            if (stored === undefined) {
-                stored = new ArrayCache (tradesLimit);
-                this.trades[symbol] = stored;
-            }
-            if (Array.isArray (data)) {
-                const trades = this.parseTrades (data, market);
-                for (let i = 0; i < trades.length; i++) {
-                    stored.append (trades[i]);
-                }
-            } else {
-                const second = this.safeString (message, 1);
-                if (second !== 'tu') {
-                    return;
-                }
-                const trade = this.parseTrade (message, market);
-                stored.append (trade);
-            }
-            client.resolve (stored, messageHash);
+        const market = this.safeMarket (marketId);
+        const symbol = market['symbol'];
+        const data = this.safeValue (message, 1);
+        let stored = this.safeValue (this.trades, symbol);
+        if (stored === undefined) {
+            stored = new ArrayCache (tradesLimit);
+            this.trades[symbol] = stored;
         }
+        if (Array.isArray (data)) {
+            const trades = this.parseTrades (data, market);
+            for (let i = 0; i < trades.length; i++) {
+                stored.append (trades[i]);
+            }
+        } else {
+            const second = this.safeString (message, 1);
+            if (second !== 'tu') {
+                return;
+            }
+            const trade = this.parseTrade (message, market);
+            stored.append (trade);
+        }
+        client.resolve (stored, messageHash);
         return message;
     }
 
@@ -282,7 +282,7 @@ module.exports = class bitfinex extends bitfinexRest {
             'len': limit, // string, number of price points, '25', '100', default = '25'
         };
         const orderbook = await this.subscribe ('book', symbol, this.deepExtend (request, params));
-        return orderbook.limit (limit);
+        return orderbook.limit ();
     }
 
     handleOrderBook (client, message, subscription) {
@@ -477,6 +477,9 @@ module.exports = class bitfinex extends bitfinexRest {
          */
         await this.loadMarkets ();
         await this.authenticate ();
+        if (symbol !== undefined) {
+            symbol = this.symbol (symbol);
+        }
         const url = this.urls['api']['ws']['private'];
         const orders = await this.watch (url, 'os', undefined, 1);
         if (this.newUpdates) {
@@ -600,6 +603,7 @@ module.exports = class bitfinex extends bitfinexRest {
             'side': side,
             'price': price,
             'stopPrice': undefined,
+            'triggerPrice': undefined,
             'average': undefined,
             'amount': amount,
             'remaining': remaining,

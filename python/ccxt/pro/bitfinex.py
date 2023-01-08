@@ -65,6 +65,8 @@ class bitfinex(Exchange, ccxt.async_support.bitfinex):
         :param dict params: extra parameters specific to the bitfinex api endpoint
         :returns [dict]: a list of `trade structures <https://docs.ccxt.com/en/latest/manual.html?#public-trades>`
         """
+        await self.load_markets()
+        symbol = self.symbol(symbol)
         trades = await self.subscribe('trades', symbol, params)
         if self.newUpdates:
             limit = trades.getLimit(symbol, limit)
@@ -106,25 +108,24 @@ class bitfinex(Exchange, ccxt.async_support.bitfinex):
         marketId = self.safe_string(subscription, 'pair')
         messageHash = channel + ':' + marketId
         tradesLimit = self.safe_integer(self.options, 'tradesLimit', 1000)
-        if marketId in self.markets_by_id:
-            market = self.markets_by_id[marketId]
-            symbol = market['symbol']
-            data = self.safe_value(message, 1)
-            stored = self.safe_value(self.trades, symbol)
-            if stored is None:
-                stored = ArrayCache(tradesLimit)
-                self.trades[symbol] = stored
-            if isinstance(data, list):
-                trades = self.parse_trades(data, market)
-                for i in range(0, len(trades)):
-                    stored.append(trades[i])
-            else:
-                second = self.safe_string(message, 1)
-                if second != 'tu':
-                    return
-                trade = self.parse_trade(message, market)
-                stored.append(trade)
-            client.resolve(stored, messageHash)
+        market = self.safe_market(marketId)
+        symbol = market['symbol']
+        data = self.safe_value(message, 1)
+        stored = self.safe_value(self.trades, symbol)
+        if stored is None:
+            stored = ArrayCache(tradesLimit)
+            self.trades[symbol] = stored
+        if isinstance(data, list):
+            trades = self.parse_trades(data, market)
+            for i in range(0, len(trades)):
+                stored.append(trades[i])
+        else:
+            second = self.safe_string(message, 1)
+            if second != 'tu':
+                return
+            trade = self.parse_trade(message, market)
+            stored.append(trade)
+        client.resolve(stored, messageHash)
         return message
 
     def parse_trade(self, trade, market=None):
@@ -259,7 +260,7 @@ class bitfinex(Exchange, ccxt.async_support.bitfinex):
             'len': limit,  # string, number of price points, '25', '100', default = '25'
         }
         orderbook = await self.subscribe('book', symbol, self.deep_extend(request, params))
-        return orderbook.limit(limit)
+        return orderbook.limit()
 
     def handle_order_book(self, client, message, subscription):
         #
@@ -435,6 +436,8 @@ class bitfinex(Exchange, ccxt.async_support.bitfinex):
         """
         await self.load_markets()
         await self.authenticate()
+        if symbol is not None:
+            symbol = self.symbol(symbol)
         url = self.urls['api']['ws']['private']
         orders = await self.watch(url, 'os', None, 1)
         if self.newUpdates:
@@ -549,6 +552,7 @@ class bitfinex(Exchange, ccxt.async_support.bitfinex):
             'side': side,
             'price': price,
             'stopPrice': None,
+            'triggerPrice': None,
             'average': None,
             'amount': amount,
             'remaining': remaining,

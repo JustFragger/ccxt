@@ -217,6 +217,7 @@ class exmo extends \ccxt\async\exmo {
              */
             Async\await($this->load_markets());
             $market = $this->market($symbol);
+            $symbol = $market['symbol'];
             $url = $this->urls['api']['ws']['public'];
             $messageHash = 'ticker:' . $symbol;
             $message = array(
@@ -275,6 +276,7 @@ class exmo extends \ccxt\async\exmo {
              */
             Async\await($this->load_markets());
             $market = $this->market($symbol);
+            $symbol = $market['symbol'];
             $url = $this->urls['api']['ws']['public'];
             $messageHash = 'trades:' . $symbol;
             $message = array(
@@ -347,6 +349,7 @@ class exmo extends \ccxt\async\exmo {
                 $messageHash = 'myTrades:' . $type;
             } else {
                 $market = $this->market($symbol);
+                $symbol = $market['symbol'];
                 $messageHash = 'myTrades:' . $market['symbol'];
             }
             $message = array(
@@ -467,6 +470,7 @@ class exmo extends \ccxt\async\exmo {
              */
             Async\await($this->load_markets());
             $market = $this->market($symbol);
+            $symbol = $market['symbol'];
             $url = $this->urls['api']['ws']['public'];
             $messageHash = 'orderbook:' . $symbol;
             $params = $this->omit($params, 'aggregation');
@@ -479,7 +483,7 @@ class exmo extends \ccxt\async\exmo {
             );
             $request = $this->deep_extend($subscribe, $params);
             $orderbook = Async\await($this->watch($url, $messageHash, $request, $messageHash));
-            return $orderbook->limit ($limit);
+            return $orderbook->limit ();
         }) ();
     }
 
@@ -650,14 +654,14 @@ class exmo extends \ccxt\async\exmo {
 
     public function authenticate($params = array ()) {
         return Async\async(function () use ($params) {
+            $messageHash = 'authenticated';
             list($type, $query) = $this->handle_market_type_and_params('authenticate', null, $params);
             $url = $this->urls['api']['ws'][$type];
             $client = $this->client($url);
-            $time = $this->milliseconds();
-            $messageHash = 'authenticated';
             $future = $client->future ('authenticated');
             $authenticated = $this->safe_value($client->subscriptions, $messageHash);
             if ($authenticated === null) {
+                $time = $this->milliseconds();
                 $this->check_required_credentials();
                 $requestId = $this->request_id();
                 $signData = $this->apiKey . (string) $time;

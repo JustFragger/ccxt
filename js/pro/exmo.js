@@ -214,6 +214,7 @@ module.exports = class exmo extends exmoRest {
          */
         await this.loadMarkets ();
         const market = this.market (symbol);
+        symbol = market['symbol'];
         const url = this.urls['api']['ws']['public'];
         const messageHash = 'ticker:' + symbol;
         const message = {
@@ -272,6 +273,7 @@ module.exports = class exmo extends exmoRest {
          */
         await this.loadMarkets ();
         const market = this.market (symbol);
+        symbol = market['symbol'];
         const url = this.urls['api']['ws']['public'];
         const messageHash = 'trades:' + symbol;
         const message = {
@@ -344,6 +346,7 @@ module.exports = class exmo extends exmoRest {
             messageHash = 'myTrades:' + type;
         } else {
             const market = this.market (symbol);
+            symbol = market['symbol'];
             messageHash = 'myTrades:' + market['symbol'];
         }
         const message = {
@@ -464,6 +467,7 @@ module.exports = class exmo extends exmoRest {
          */
         await this.loadMarkets ();
         const market = this.market (symbol);
+        symbol = market['symbol'];
         const url = this.urls['api']['ws']['public'];
         const messageHash = 'orderbook:' + symbol;
         params = this.omit (params, 'aggregation');
@@ -476,7 +480,7 @@ module.exports = class exmo extends exmoRest {
         };
         const request = this.deepExtend (subscribe, params);
         const orderbook = await this.watch (url, messageHash, request, messageHash);
-        return orderbook.limit (limit);
+        return orderbook.limit ();
     }
 
     handleOrderBook (client, message) {
@@ -645,14 +649,14 @@ module.exports = class exmo extends exmoRest {
     }
 
     async authenticate (params = {}) {
+        const messageHash = 'authenticated';
         const [ type, query ] = this.handleMarketTypeAndParams ('authenticate', undefined, params);
         const url = this.urls['api']['ws'][type];
         const client = this.client (url);
-        const time = this.milliseconds ();
-        const messageHash = 'authenticated';
         const future = client.future ('authenticated');
         const authenticated = this.safeValue (client.subscriptions, messageHash);
         if (authenticated === undefined) {
+            const time = this.milliseconds ();
             this.checkRequiredCredentials ();
             const requestId = this.requestId ();
             const signData = this.apiKey + time.toString ();

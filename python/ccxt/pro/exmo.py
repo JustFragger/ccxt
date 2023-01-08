@@ -203,6 +203,7 @@ class exmo(Exchange, ccxt.async_support.exmo):
         """
         await self.load_markets()
         market = self.market(symbol)
+        symbol = market['symbol']
         url = self.urls['api']['ws']['public']
         messageHash = 'ticker:' + symbol
         message = {
@@ -257,6 +258,7 @@ class exmo(Exchange, ccxt.async_support.exmo):
         """
         await self.load_markets()
         market = self.market(symbol)
+        symbol = market['symbol']
         url = self.urls['api']['ws']['public']
         messageHash = 'trades:' + symbol
         message = {
@@ -323,6 +325,7 @@ class exmo(Exchange, ccxt.async_support.exmo):
             messageHash = 'myTrades:' + type
         else:
             market = self.market(symbol)
+            symbol = market['symbol']
             messageHash = 'myTrades:' + market['symbol']
         message = {
             'method': 'subscribe',
@@ -434,6 +437,7 @@ class exmo(Exchange, ccxt.async_support.exmo):
         """
         await self.load_markets()
         market = self.market(symbol)
+        symbol = market['symbol']
         url = self.urls['api']['ws']['public']
         messageHash = 'orderbook:' + symbol
         params = self.omit(params, 'aggregation')
@@ -446,7 +450,7 @@ class exmo(Exchange, ccxt.async_support.exmo):
         }
         request = self.deep_extend(subscribe, params)
         orderbook = await self.watch(url, messageHash, request, messageHash)
-        return orderbook.limit(limit)
+        return orderbook.limit()
 
     def handle_order_book(self, client, message):
         #
@@ -597,14 +601,14 @@ class exmo(Exchange, ccxt.async_support.exmo):
             future.resolve(True)
 
     async def authenticate(self, params={}):
+        messageHash = 'authenticated'
         type, query = self.handle_market_type_and_params('authenticate', None, params)
         url = self.urls['api']['ws'][type]
         client = self.client(url)
-        time = self.milliseconds()
-        messageHash = 'authenticated'
         future = client.future('authenticated')
         authenticated = self.safe_value(client.subscriptions, messageHash)
         if authenticated is None:
+            time = self.milliseconds()
             self.check_required_credentials()
             requestId = self.request_id()
             signData = self.apiKey + str(time)

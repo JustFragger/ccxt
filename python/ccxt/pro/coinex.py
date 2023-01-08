@@ -385,6 +385,7 @@ class coinex(Exchange, ccxt.async_support.coinex):
         """
         await self.load_markets()
         market = self.market(symbol)
+        symbol = market['symbol']
         type = None
         type, params = self.handle_market_type_and_params('watchTrades', market, params)
         url = self.urls['api']['ws'][type]
@@ -410,6 +411,7 @@ class coinex(Exchange, ccxt.async_support.coinex):
         """
         await self.load_markets()
         market = self.market(symbol)
+        symbol = market['symbol']
         type = None
         type, params = self.handle_market_type_and_params('watchOrderBook', market, params)
         url = self.urls['api']['ws'][type]
@@ -439,7 +441,7 @@ class coinex(Exchange, ccxt.async_support.coinex):
         }
         request = self.deep_extend(subscribe, params)
         orderbook = await self.watch(url, messageHash, request, messageHash)
-        return orderbook.limit(limit)
+        return orderbook.limit()
 
     async def watch_ohlcv(self, symbol, timeframe='1m', since=None, limit=None, params={}):
         """
@@ -453,6 +455,7 @@ class coinex(Exchange, ccxt.async_support.coinex):
         """
         await self.load_markets()
         market = self.market(symbol)
+        symbol = market['symbol']
         messageHash = 'ohlcv'
         type = None
         type, params = self.handle_market_type_and_params('watchOHLCV', market, params)
@@ -572,9 +575,7 @@ class coinex(Exchange, ccxt.async_support.coinex):
             message['params'] = [market['id']]
             messageHash += ':' + symbol
         else:
-            # deprecated usage of markets_by_id...
-            markets = list(self.markets_by_id.keys())
-            message['params'] = markets
+            message['params'] = self.ids
         url = self.urls['api']['ws'][type]
         request = self.deep_extend(message, query)
         orders = await self.watch(url, messageHash, request, messageHash, request)
@@ -825,6 +826,7 @@ class coinex(Exchange, ccxt.async_support.coinex):
             'side': side,
             'price': self.safe_string(order, 'price'),
             'stopPrice': self.safe_string(order, 'stop_price'),
+            'triggerPrice': self.safe_string(order, 'stop_price'),
             'amount': amount,
             'filled': filled,
             'remaining': remaining,
